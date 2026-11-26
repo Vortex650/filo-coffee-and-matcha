@@ -30,15 +30,16 @@ export default function Cart() {
                 {cart.map((i, idx) => (
                   <div key={idx} className="flex gap-5 border-b border-ink/10 pb-8">
                     <div className="h-24 w-20 flex-shrink-0 overflow-hidden bg-ink/5">
-                      <img src="https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=200&q=80" alt="Placeholder: drink" className="h-full w-full object-cover" />
+                      <img src={i.image_url || "https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=200&q=80"} alt={i.image_url ? i.product_name : `Placeholder: ${i.product_name}`} className="h-full w-full object-cover" />
                     </div>
                     <div className="flex-1">
                       <div className="flex items-start justify-between gap-4">
                         <div>
                           <p className="font-heading text-xl">{i.product_name}</p>
                           <p className="mt-1 text-xs text-ink/65">
-                            {[i.size_name, i.hot_iced, i.milk && `${i.milk} milk`, i.sugar && `${i.sugar} sugar`].filter(Boolean).join(" · ")}
+                            {[i.size_name, i.hot_iced, i.milk && i.milk !== "Whole milk" && i.milk, i.sugar && i.sugar !== "100%" && `${i.sugar} sugar`].filter(Boolean).join(" · ")}
                           </p>
+                          {i.customizations?.length > 0 && <p className="mt-1 text-xs text-ink/65">{i.customizations.map((c: any) => c.option).join(", ")}</p>}
                           {i.addons?.length > 0 && <p className="mt-1 text-xs text-ink/65">Add-ons: {i.addons.map((a: any) => a.name).join(", ")}</p>}
                           {i.notes && <p className="mt-1 text-xs italic text-ink/65">“{i.notes}”</p>}
                         </div>

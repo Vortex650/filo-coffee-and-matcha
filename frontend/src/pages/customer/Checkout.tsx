@@ -55,7 +55,7 @@ export default function Checkout() {
         customer_name: name, customer_mobile: mobile, customer_email: email,
         payment_method: method, order_type: orderType, delivery_address: address, pickup_time: pickupTime, notes,
         senior_pwd_applied: seniorPwd, reward_redemption_type: reward, promo_code: promo,
-        items: cart.map((i: any) => ({ product_id: i.product_id, size_id: i.size_id, quantity: i.quantity, hot_iced: i.hot_iced, milk: i.milk || "", sugar: i.sugar || "", addons: i.addons || [], notes: i.notes || "" })),
+        items: cart.map((i: any) => ({ product_id: i.product_id, size_id: i.size_id, quantity: i.quantity, hot_iced: i.hot_iced, milk: i.milk || "", sugar: i.sugar || "", addons: i.addons || [], option_ids: i.option_ids || [], customizations: i.customizations || [], notes: i.notes || "" })),
       };
       const r = await api.post("/orders/", payload);
       localStorage.removeItem("cart");

@@ -84,6 +84,7 @@ class OrderItem(models.Model):
     milk = models.CharField(max_length=40, blank=True)
     sugar = models.CharField(max_length=40, blank=True)
     addons = models.JSONField(default=list, blank=True)
+    customizations = models.JSONField(default=list, blank=True)
     notes = models.TextField(blank=True)
     is_stamp_eligible = models.BooleanField(default=True)
 

@@ -1,12 +1,12 @@
 from rest_framework import serializers
 from .models import Order, OrderItem, OrderStatusHistory
-from apps.menu.models import Product, ProductSize
+from apps.menu.models import Product, ProductSize, Addon, CustomizationOption
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = OrderItem
-        fields = ["id", "product", "product_name", "size", "size_name", "quantity", "unit_price", "line_total", "hot_iced", "milk", "sugar", "addons", "notes", "is_stamp_eligible"]
+        fields = ["id", "product", "product_name", "size", "size_name", "quantity", "unit_price", "line_total", "hot_iced", "milk", "sugar", "addons", "customizations", "notes", "is_stamp_eligible"]
 
 
 class OrderItemCreateSerializer(serializers.Serializer):
@@ -17,6 +17,12 @@ class OrderItemCreateSerializer(serializers.Serializer):
     milk = serializers.CharField(required=False, allow_blank=True, default="")
     sugar = serializers.CharField(required=False, allow_blank=True, default="")
     addons = serializers.ListField(child=serializers.DictField(), required=False, default=list)
+    option_ids = serializers.ListField(
+        child=serializers.IntegerField(), required=False, default=list
+    )
+    customizations = serializers.ListField(
+        child=serializers.DictField(), required=False, default=list
+    )
     notes = serializers.CharField(required=False, allow_blank=True, default="")
 
     def validate_product_id(self, v):
@@ -71,8 +77,36 @@ class OrderCreateSerializer(serializers.Serializer):
                 size_name = size.name
                 unit_price = unit_price + size.price_adjustment
             addons = it.get("addons", [])
-            addon_total = sum(a.get("price", 0) for a in addons)
-            unit_price = unit_price + addon_total
+            addon_ids = [
+                a.get("id")
+                for a in addons
+                if isinstance(a, dict) and a.get("id")
+            ]
+            valid_addons = list(Addon.objects.filter(id__in=addon_ids, is_active=True))
+            addon_total = sum((a.price for a in valid_addons), 0)
+            addons = [
+                {"id": a.id, "name": a.name, "price": str(a.price)}
+                for a in valid_addons
+            ]
+
+            option_ids = it.get("option_ids", [])
+            valid_options = list(
+                CustomizationOption.objects.filter(
+                    id__in=option_ids, is_active=True, group__product=product
+                ).select_related("group")
+            )
+            option_total = sum((o.price_adjustment for o in valid_options), 0)
+            customizations = [
+                {
+                    "group": o.group.label,
+                    "group_key": o.group.key,
+                    "option": o.label,
+                    "price": str(o.price_adjustment),
+                }
+                for o in valid_options
+            ]
+
+            unit_price = unit_price + addon_total + option_total
             qty = it["quantity"]
             line_total = unit_price * qty
             subtotal += line_total
@@ -89,6 +123,7 @@ class OrderCreateSerializer(serializers.Serializer):
                 milk=it.get("milk", ""),
                 sugar=it.get("sugar", ""),
                 addons=addons,
+                customizations=customizations,
                 notes=it.get("notes", ""),
                 is_stamp_eligible=product.is_stamp_eligible,
             )

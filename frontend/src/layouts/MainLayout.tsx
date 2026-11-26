@@ -6,6 +6,7 @@ import Footer from "../components/layout/Footer";
 export default function MainLayout() {
   const { pathname, hash } = useLocation();
   const isHome = pathname === "/";
+  const isFullBleed = isHome || pathname === "/menu" || pathname.startsWith("/product/");
 
   useEffect(() => {
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -37,7 +38,7 @@ export default function MainLayout() {
         Skip to content
       </a>
       <Navbar />
-      <main id="main" className={isHome ? "" : "mx-auto max-w-6xl px-4 pb-16 pt-24 md:px-8"}>
+      <main id="main" className={isFullBleed ? "" : "mx-auto max-w-6xl px-4 pb-16 pt-24 md:px-8"}>
         <Outlet />
       </main>
       <Footer />
