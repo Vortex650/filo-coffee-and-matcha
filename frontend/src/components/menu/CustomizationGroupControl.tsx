@@ -36,7 +36,7 @@ export default function CustomizationGroupControl({
 
       <div
         className={`mt-4 grid gap-2.5 ${
-          group.options.length > 3 ? "grid-cols-2 sm:grid-cols-3" : "grid-cols-2"
+          group.options.length >= 3 ? "grid-cols-2 sm:grid-cols-3" : "grid-cols-2"
         }`}
       >
         {group.options.map((option) => {
