@@ -36,12 +36,28 @@ export function formatPeso(value: number | string) {
 }
 
 export async function fetchMenu() {
-  const [productsRes, categoriesRes] = await Promise.all([
-    api.get("/menu/products/"),
-    api.get("/menu/categories/"),
-  ]);
-  const products: MenuProduct[] = productsRes.data.results ?? productsRes.data;
-  const categories: MenuCategory[] = categoriesRes.data.results ?? categoriesRes.data;
+  const products: MenuProduct[] = [];
+  let page = 1;
+  // DRF paginates at 50. Follow every page so the in-memory filters never
+  // silently miss products once the real menu grows.
+  while (page <= 40) {
+    const { data } = await api.get(`/menu/products/?page=${page}`);
+    const batch: MenuProduct[] = data.results ?? data;
+    products.push(...batch);
+    if (!data.next || !data.results) break;
+    page += 1;
+  }
+
+  const categories: MenuCategory[] = [];
+  page = 1;
+  while (page <= 10) {
+    const { data } = await api.get(`/menu/categories/?page=${page}`);
+    const batch: MenuCategory[] = data.results ?? data;
+    categories.push(...batch);
+    if (!data.next || !data.results) break;
+    page += 1;
+  }
+
   return {
     products: products.filter((p) => p.availability_status !== "hidden"),
     categories: categories.filter((c) => c.is_active),
@@ -171,6 +187,31 @@ export function selectionPayload(
       option: o.label,
       price: o.price_adjustment,
     })),
+  };
+}
+
+export function priceRequest(
+  product: MenuProduct,
+  selections: Record<string, string[]>,
+  quantity = 1
+) {
+  const options = selectedOptions(product.customization_groups, selections);
+  const size = product.customization_groups
+    .find((group) => group.kind === "size")
+    ?.options.find((option) => (selections.size || []).includes(option.key));
+
+  const optionIds = options
+    .filter((option) => option.id && !option.size_id && !option.addon_id)
+    .map((option) => option.id as number);
+  const addonIds = options
+    .map((option) => option.addon_id)
+    .filter((id): id is number => typeof id === "number");
+
+  return {
+    size_id: size?.size_id ?? null,
+    option_ids: optionIds,
+    addon_ids: addonIds,
+    quantity,
   };
 }
 

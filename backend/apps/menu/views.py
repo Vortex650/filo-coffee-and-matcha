@@ -8,6 +8,7 @@ from .models import (
     Product,
     ProductSize,
     Addon,
+    ProductAddon,
     Favorite,
     CustomizationGroup,
     CustomizationOption,
@@ -17,6 +18,7 @@ from .serializers import (
     ProductSerializer,
     ProductSizeSerializer,
     AddonSerializer,
+    ProductAddonSerializer,
     FavoriteSerializer,
     CustomizationGroupSerializer,
     CustomizationOptionSerializer,
@@ -141,12 +143,26 @@ class FavoriteViewSet(viewsets.ModelViewSet):
 class ProductSizeViewSet(viewsets.ModelViewSet):
     queryset = ProductSize.objects.all()
     serializer_class = ProductSizeSerializer
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["product", "is_active"]
     permission_classes = [IsManagerOrOwner]
 
 
 class AddonViewSet(viewsets.ModelViewSet):
     queryset = Addon.objects.all()
     serializer_class = AddonSerializer
+
+    def get_permissions(self):
+        if self.action in ("list", "retrieve"):
+            return [permissions.AllowAny()]
+        return [IsManagerOrOwner()]
+
+
+class ProductAddonViewSet(viewsets.ModelViewSet):
+    queryset = ProductAddon.objects.select_related("addon", "product")
+    serializer_class = ProductAddonSerializer
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["product", "addon"]
 
     def get_permissions(self):
         if self.action in ("list", "retrieve"):

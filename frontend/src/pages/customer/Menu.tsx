@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { FiSearch, FiSliders, FiX } from "react-icons/fi";
 import { Reveal } from "../../components/ui/Reveal";
 import { Skeleton } from "../../components/ui/States";
@@ -14,25 +14,55 @@ import { activeFilterCount, applyFilters, fetchMenu } from "../../services/menu"
 import { images } from "../../content/site";
 import type { MenuCategory, MenuFilters, MenuProduct, SortKey } from "../../types/menu";
 
-const initialFilters: MenuFilters = {
-  category: "all",
-  tags: [],
-  sort: "recommended",
-  price: "all",
-  onlyAvailable: false,
-};
+const SORTS: SortKey[] = ["recommended", "popular", "price-asc", "price-desc", "newest"];
+const PRICES: MenuFilters["price"][] = ["all", "under-120", "120-150", "over-150"];
+
+function parseParams(params: URLSearchParams): { filters: MenuFilters; search: string } {
+  const category = Number(params.get("category"));
+  const sort = params.get("sort") as SortKey;
+  const price = params.get("price") as MenuFilters["price"];
+  return {
+    search: params.get("q") ?? "",
+    filters: {
+      category: Number.isFinite(category) && category > 0 ? category : "all",
+      tags: (params.get("tags") ?? "")
+        .split(",")
+        .map((tag) => tag.trim())
+        .filter(Boolean),
+      sort: SORTS.includes(sort) ? sort : "recommended",
+      price: PRICES.includes(price) ? price : "all",
+      onlyAvailable: params.get("available") === "1",
+    },
+  };
+}
+
+function paramsFor(filters: MenuFilters, search: string) {
+  const params = new URLSearchParams();
+  if (search.trim()) params.set("q", search);
+  if (filters.category !== "all") params.set("category", String(filters.category));
+  if (filters.tags.length) params.set("tags", filters.tags.join(","));
+  if (filters.sort !== "recommended") params.set("sort", filters.sort);
+  if (filters.price !== "all") params.set("price", filters.price);
+  if (filters.onlyAvailable) params.set("available", "1");
+  return params;
+}
 
 export default function Menu() {
   const [products, setProducts] = useState<MenuProduct[]>([]);
   const [categories, setCategories] = useState<MenuCategory[]>([]);
-  const [filters, setFilters] = useState<MenuFilters>(initialFilters);
-  const [search, setSearch] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { filters, search } = useMemo(() => parseParams(searchParams), [searchParams]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [sheetOpen, setSheetOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const filterBtnRef = useRef<HTMLButtonElement>(null);
   const collectionRef = useRef<HTMLDivElement>(null);
+
+  const setFilters = (next: MenuFilters) =>
+    setSearchParams(paramsFor(next, search), { replace: true });
+  const setSearch = (next: string) =>
+    setSearchParams(paramsFor(filters, next), { replace: true });
 
   const load = () => {
     setLoading(true);
@@ -88,12 +118,11 @@ export default function Menu() {
   const hasPlaceholders = products.some((p) => p.is_placeholder);
 
   const setCategory = (category: number | "all") => {
-    setFilters((current) => ({ ...current, category }));
+    setFilters({ ...filters, category });
   };
 
   const clearAll = () => {
-    setFilters(initialFilters);
-    setSearch("");
+    setSearchParams({}, { replace: true });
   };
 
   const countFor = (next: MenuFilters) => applyFilters(products, next, search).length;
@@ -310,7 +339,7 @@ export default function Menu() {
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <SortSelect value={filters.sort} onChange={(sort: SortKey) => setFilters((c) => ({ ...c, sort }))} />
+                    <SortSelect value={filters.sort} onChange={(sort: SortKey) => setFilters({ ...filters, sort })} />
                   </div>
                 </div>
 
@@ -335,7 +364,7 @@ export default function Menu() {
                         key={tag}
                         type="button"
                         onClick={() =>
-                          setFilters((c) => ({ ...c, tags: c.tags.filter((t) => t !== tag) }))
+                          setFilters({ ...filters, tags: filters.tags.filter((t) => t !== tag) })
                         }
                         className="inline-flex items-center gap-1.5 border border-ink/15 px-2.5 py-1 text-[10px] uppercase tracking-[0.16em]"
                       >
@@ -345,7 +374,7 @@ export default function Menu() {
                     {filters.price !== "all" && (
                       <button
                         type="button"
-                        onClick={() => setFilters((c) => ({ ...c, price: "all" }))}
+                        onClick={() => setFilters({ ...filters, price: "all" })}
                         className="inline-flex items-center gap-1.5 border border-ink/15 px-2.5 py-1 text-[10px] uppercase tracking-[0.16em]"
                       >
                         {filters.price.replace("-", " – ")} <FiX size={11} aria-hidden />
@@ -354,7 +383,7 @@ export default function Menu() {
                     {filters.onlyAvailable && (
                       <button
                         type="button"
-                        onClick={() => setFilters((c) => ({ ...c, onlyAvailable: false }))}
+                        onClick={() => setFilters({ ...filters, onlyAvailable: false })}
                         className="inline-flex items-center gap-1.5 border border-ink/15 px-2.5 py-1 text-[10px] uppercase tracking-[0.16em]"
                       >
                         Available now <FiX size={11} aria-hidden />

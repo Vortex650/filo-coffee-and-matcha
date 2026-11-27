@@ -14,14 +14,16 @@ import {
   availabilityCopy,
   computePrice,
   defaultSelections,
+  fetchPricePreview,
   fetchProduct,
   fetchRelated,
   formatPeso,
+  priceRequest,
   productImage,
   selectionPayload,
   validateSelections,
 } from "../../services/menu";
-import type { MenuProduct } from "../../types/menu";
+import type { MenuProduct, PricePreview } from "../../types/menu";
 
 export default function Product() {
   const { id } = useParams();
@@ -93,6 +95,34 @@ export default function Product() {
     return computePrice(product, selections);
   }, [product, selections]);
 
+  // Ask the backend for an authoritative quote. The local calculation keeps the
+  // UI instant; the server response corrects any rule the frontend cannot know.
+  const [quote, setQuote] = useState<PricePreview | null>(null);
+  useEffect(() => {
+    if (!product) {
+      setQuote(null);
+      return;
+    }
+    setQuote(null);
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      fetchPricePreview(String(product.id), priceRequest(product, selections, qty))
+        .then((data) => {
+          if (!cancelled) setQuote(data as PricePreview);
+        })
+        .catch(() => {
+          if (!cancelled) setQuote(null);
+        });
+    }, 250);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [product, selections, qty]);
+
+  const displayUnit = quote ? Number(quote.unit_price) : price.unit;
+  const displayLines = quote?.breakdown?.length ? quote.breakdown : price.lines;
+
   const availability = product ? availabilityCopy(product) : { title: "", copy: "", orderable: false };
 
   const toggleFavorite = async () => {
@@ -154,7 +184,7 @@ export default function Product() {
       ...payload,
       quantity: qty,
       notes,
-      unit_price: price.unit,
+      unit_price: displayUnit,
     });
     localStorage.setItem("cart", JSON.stringify(cart));
     toast(`${product.name} added to your cart.`);
@@ -273,16 +303,21 @@ export default function Product() {
               <div>
                 <p className="text-[9px] uppercase tracking-[0.24em] text-ink/65">Your selection</p>
                 <p className="mt-1 font-heading text-3xl" aria-live="polite">
-                  {formatPeso(price.unit)}
+                  {formatPeso(displayUnit)}
                 </p>
+                {qty > 1 && (
+                  <p className="mt-1 text-[10px] uppercase tracking-[0.16em] text-ink/60">
+                    {formatPeso(displayUnit * qty)} for {qty}
+                  </p>
+                )}
               </div>
-              {price.lines.length > 1 && (
+              {displayLines.length > 1 && (
                 <details className="text-xs text-ink/70">
                   <summary className="cursor-pointer text-[10px] uppercase tracking-[0.18em] underline underline-offset-4">
                     Price details
                   </summary>
                   <dl className="mt-3 w-56 space-y-1.5">
-                    {price.lines.map((line) => (
+                    {displayLines.map((line) => (
                       <div key={`${line.label}-${line.amount}`} className="flex justify-between gap-4">
                         <dt>{line.label}</dt>
                         <dd className="tabular-nums">{formatPeso(line.amount)}</dd>
@@ -369,7 +404,7 @@ export default function Product() {
             {ORDERING_ENABLED && availability.orderable ? (
               <div className="mt-7 flex flex-col gap-3 sm:flex-row">
                 <Button onClick={addToSelection} className="flex-1">
-                  Add to Cart · {formatPeso(price.unit * qty)}
+                  Add to Cart · {formatPeso(displayUnit * qty)}
                 </Button>
                 <Button variant="secondary" onClick={() => navigate("/cart")}>
                   View Cart

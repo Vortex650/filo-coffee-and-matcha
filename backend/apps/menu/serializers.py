@@ -37,6 +37,14 @@ class AddonSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
+class ProductAddonSerializer(serializers.ModelSerializer):
+    addon_detail = AddonSerializer(source="addon", read_only=True)
+
+    class Meta:
+        model = ProductAddon
+        fields = "__all__"
+
+
 class CustomizationOptionSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomizationOption
